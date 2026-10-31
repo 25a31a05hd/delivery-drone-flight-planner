@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Drone Flight Planner - SDG 9</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        sdg: {
+                            DEFAULT: '#F36E21', // SDG 9 Orange
+                            dark: '#D9530F',
+                            light: '#FDE8DC'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
+        }
+        .grid-cell {
+            transition: background-color 0.15s ease, transform 0.1s ease;
+        }
+        .grid-cell:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <!-- Header / Navigation -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700/60 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-gradient-to-tr from-sdg to-amber-500 rounded-xl shadow-lg shadow-sdg/20 text-white font-bold text-xl">
+                    <i class="fa-solid fa-drone"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-lg text-white leading-tight">AeroRoute AI</h1>
+                        <span class="bg-sdg/20 text-sdg border border-sdg/40 text-xs px-2 py-0.5 rounded-full font-semibold">SDG 9</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Energy-Efficient Autonomous Drone Flight Planner</p>
+                </div>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-slate-400 font-medium mr-1 hidden sm:inline"><i class="fa-solid fa-sliders mr-1"></i>Presets:</span>
+                <button onclick="loadPreset('urban')" class="px-2.5 py-1 text-xs bg-slate-700/80 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-600/50">
+                    🏙️ Urban Corridor
+                </button>
+                <button onclick="loadPreset('scattered')" class="px-2.5 py-1 text-xs bg-slate-700/80 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-600/50">
+                    🌾 Rural Drop-offs
+                </button>
+                <button onclick="loadPreset('dense')" class="px-2.5 py-1 text-xs bg-slate-700/80 hover:bg-slate-700 text-slate-200 rounded-lg transition border border-slate-600/50">
+                    🏭 Industrial Zone
+                </button>
+                <button onclick="resetGrid()" class="px-2.5 py-1 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 rounded-lg transition border border-rose-500/30">
+                    <i class="fa-solid fa-rotate-left mr-1"></i>Clear
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Controls Sidebar -->
+        <div class="lg:col-span-4 flex flex-col gap-5">
+
+            <!-- Tool Selection Card -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-map-pin text-sdg"></i> Interactive Canvas Controls
+                </h2>
+                
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button id="tool-base" onclick="setTool('base')" class="tool-btn flex flex-col items-center p-2.5 rounded-xl border border-slate-600/60 bg-slate-700/50 hover:bg-slate-700 text-xs font-medium transition">
+                        <div class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-1 text-sm">
+                            <i class="fa-solid fa-warehouse"></i>
+                        </div>
+                        Set Base
+                    </button>
+                    <button id="tool-target" onclick="setTool('target')" class="tool-btn flex flex-col items-center p-2.5 rounded-xl border border-slate-600/60 bg-slate-700/50 hover:bg-slate-700 text-xs font-medium transition">
+                        <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center mb-1 text-sm">
+                            <i class="fa-solid fa-box"></i>
+                        </div>
+                        Add Target
+                    </button>
+                    <button id="tool-obstacle" onclick="setTool('obstacle')" class="tool-btn flex flex-col items-center p-2.5 rounded-xl border border-slate-600/60 bg-slate-700/50 hover:bg-slate-700 text-xs font-medium transition">
+                        <div class="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center mb-1 text-sm">
+                            <i class="fa-solid fa-ban"></i>
+                        </div>
+                        No-Fly Zone
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700/60">
+                    <span>Grid Size: <strong id="grid-size-val" class="text-slate-200">12 x 12</strong></span>
+                    <input type="range" id="grid-slider" min="8" max="20" value="12" oninput="changeGridSize(this.value)" class="w-28 accent-sdg cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Algorithm Configuration -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-microchip text-sdg"></i> Algorithm & Optimization
+                </h2>
+
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1.5 font-medium">Routing Algorithm Strategy</label>
+                    <select id="algo-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-sdg transition">
+                        <option value="auto">🤖 Auto-Select (Optimal HK for N≤12, else Greedy)</option>
+                        <option value="held-karp">🎯 Exact Held-Karp (Dynamic Programming)</option>
+                        <option value="greedy">⚡ Greedy Nearest-Neighbor (Heuristic)</option>
+                    </select>
+                </div>
+
+                <!-- Parameters -->
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Payload Weight (kg)</label>
+                        <input type="number" id="payload-input" min="0.5" max="10" step="0.5" value="2.0" onchange="recalculateMetrics()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sdg">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Drone Battery (Wh)</label>
+                        <input type="number" id="battery-input" min="50" max="500" step="10" value="180" onchange="recalculateMetrics()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sdg">
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-2 flex gap-2">
+                    <button id="run-btn" onclick="runPlanner()" class="flex-1 bg-gradient-to-r from-sdg to-amber-500 hover:from-sdg-dark hover:to-amber-600 text-white font-semibold py-2.5 px-4 rounded-xl shadow-lg shadow-sdg/25 transition flex items-center justify-center gap-2 text-xs">
+                        <i class="fa-solid fa-play"></i> Compute & Animate Route
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drone Real-Time Performance Dashboard -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl space-y-3">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-chart-pie text-sdg"></i> Flight Telemetry</span>
+                    <span id="planner-status" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-mono">IDLE</span>
+                </h2>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <p class="text-[11px] text-slate-400">Total Distance</p>
+                        <p class="text-lg font-bold text-slate-100 mt-0.5" id="metric-distance">0.0 <span class="text-xs font-normal text-slate-400">km</span></p>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <p class="text-[11px] text-slate-400">Est. Energy Used</p>
+                        <p class="text-lg font-bold text-amber-400 mt-0.5" id="metric-energy">0.0 <span class="text-xs font-normal text-slate-400">Wh</span></p>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <p class="text-[11px] text-slate-400">Est. Flight Time</p>
+                        <p class="text-lg font-bold text-sky-400 mt-0.5" id="metric-time">0 <span class="text-xs font-normal text-slate-400">min</span></p>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <p class="text-[11px] text-slate-400">Battery Remaining</p>
+                        <p class="text-lg font-bold text-emerald-400 mt-0.5" id="metric-battery">100<span class="text-xs font-normal text-slate-400">%</span></p>
+                    </div>
+                </div>
+
+                <!-- Battery Bar -->
+                <div>
+                    <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                        <span>Mission Battery Budget</span>
+                        <span id="battery-percent-text">100% Left</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700/50">
+                        <div id="battery-bar" class="h-full bg-emerald-500 transition-all duration-500 w-full"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Main Interactive Canvas Area -->
+        <div class="lg:col-span-8 flex flex-col gap-5">
+            
+            <!-- Grid Container -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl flex flex-col items-center justify-center min-h-[480px] relative">
+                
+                <!-- Legend Bar -->
+                <div class="w-full flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 mb-4 pb-3 border-b border-slate-700/60">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <span class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-emerald-500 flex items-center justify-center text-[10px] text-slate-900 font-bold"><i class="fa-solid fa-warehouse"></i></div> Base</span>
+                        <span class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-amber-500 flex items-center justify-center text-[10px] text-slate-900 font-bold"><i class="fa-solid fa-box"></i></div> Target</span>
+                        <span class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-rose-600"></div> No-Fly Zone</span>
+                        <span class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-sky-500/40 border border-sky-400"></div> Planned Path</span>
+                    </div>
+                    <div class="text-slate-400 text-[11px]">
+                        <i class="fa-regular fa-lightbulb mr-1 text-amber-400"></i> Click/drag grid cells to modify
+                    </div>
+                </div>
+
+                <!-- Interactive Grid Canvas -->
+                <div id="grid-container" class="grid gap-1 bg-slate-900 p-3 rounded-2xl border border-slate-700 shadow-inner max-w-full overflow-auto">
+                    <!-- Dynamic Grid Cells Rendered via JS -->
+                </div>
+
+                <!-- Simulation Info Banner -->
+                <div id="info-banner" class="w-full mt-4 bg-slate-900/80 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-300 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-sdg"></i>
+                        <span id="banner-text">Ready. Place delivery targets and obstacles, then click "Compute & Animate Route".</span>
+                    </div>
+                    <span id="algo-badge" class="hidden text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-sdg border border-sdg/30">
+                        HK DP
+                    </span>
+                </div>
+            </div>
+
+            <!-- Algorithm Explanation & SDG Impact Card -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-sdg"></i> Algorithm Engine
+                    </h3>
+                    <ul class="text-xs text-slate-400 space-y-1.5 leading-relaxed">
+                        <li><strong class="text-slate-200">BFS (Breadth-First Search):</strong> Evaluates grid terrain to create a distance matrix avoiding all no-fly zone obstacles.</li>
+                        <li><strong class="text-slate-200">Held-Karp Dynamic Programming:</strong> Finds the mathematically guaranteed shortest TSP tour using bitmask DP in $O(N^2 2^N)$ time.</li>
+                        <li><strong class="text-slate-200">Greedy Nearest-Neighbor:</strong> Ultra-fast $O(N^2)$ heuristic fallback for large point sets.</li>
+                    </ul>
+                </div>
+                <div class="border-t md:border-t-0 md:border-l border-slate-700/60 pt-4 md:pt-0 md:pl-4">
+                    <h3 class="text-sm font-semibold text-slate-200 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-leaf text-emerald-400"></i> SDG 9 Impact Metrics
+                    </h3>
+                    <p class="text-xs text-slate-400 leading-relaxed mb-2">
+                        Optimizing autonomous flight corridors directly supports <strong>Sustainable Infrastructure & Innovation</strong> by reducing energy consumption and greenhouse gas emissions.
+                    </p>
+                    <div class="flex gap-2">
+                        <span class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] px-2 py-1 rounded-lg">
+                            <i class="fa-solid fa-bolt mr-1"></i> Energy Efficiency
+                        </span>
+                        <span class="bg-sky-500/10 border border-sky-500/30 text-sky-300 text-[11px] px-2 py-1 rounded-lg">
+                            <i class="fa-solid fa-smog mr-1"></i> Zero Direct CO₂
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Custom Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // State variables
+        let gridSize = 12;
+        let activeTool = 'target'; // 'base', 'target', 'obstacle'
+        let isMouseDown = false;
+        let animationInterval = null;
+
+        // Grid data
+        let baseCoords = { r: 1, c: 1 };
+        let targets = [
+            { r: 2, c: 9 },
+            { r: 8, c: 2 },
+            { r: 10, c: 10 },
+            { r: 5, c: 7 }
+        ];
+        let obstacles = new Set([
+            '3,3', '3,4', '3,5', '4,5', '5,5', '6,5', '7,5', '8,5'
+        ]);
+
+        // Solution state
+        let fullPathSequence = [];
+        let totalDistanceKm = 0;
+
+        // Initialize UI
+        window.addEventListener('DOMContentLoaded', () => {
+            setTool('target');
+            renderGrid();
+            
+            document.addEventListener('mouseup', () => { isMouseDown = false; });
+        });
+
+        // Tool Switcher
+        function setTool(tool) {
+            activeTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('border-sdg', 'bg-sdg/20', 'text-white');
+                btn.classList.add('border-slate-600/60', 'bg-slate-700/50', 'text-slate-300');
+            });
+            const activeBtn = document.getElementById(`tool-${tool}`);
+            if(activeBtn) {
+                activeBtn.classList.add('border-sdg', 'bg-sdg/20', 'text-white');
+            }
+        }
+
+        // Change Grid Size
+        function changeGridSize(val) {
+            gridSize = parseInt(val);
+            document.getElementById('grid-size-val').innerText = `${gridSize} x ${gridSize}`;
+            
+            // Adjust base if out of bounds
+            if(baseCoords.r >= gridSize || baseCoords.c >= gridSize) {
+                baseCoords = { r: 0, c: 0 };
+            }
+            // Filter targets & obstacles out of bounds
+            targets = targets.filter(t => t.r < gridSize && t.c < gridSize);
+            const newObs = new Set();
+            obstacles.forEach(key => {
+                const [r, c] = key.split(',').map(Number);
+                if(r < gridSize && c < gridSize) newObs.add(key);
+            });
+            obstacles = newObs;
+
+            renderGrid();
+        }
+
+        // Render Grid
+        function renderGrid() {
+            const container = document.getElementById('grid-container');
+            container.style.gridTemplateColumns = `repeat(${gridSize}, minmax(0, 1fr))`;
+            container.innerHTML = '';
+
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    const cellKey = `${r},${c}`;
+                    const cell = document.createElement('div');
+                    
+                    // Responsive sizing based on grid dimensions
+                    const cellSizeClass = gridSize > 16 ? 'w-6 h-6 text-[10px]' : (gridSize > 12 ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-xs');
+                    cell.className = `grid-cell ${cellSizeClass} rounded-lg border border-slate-800 flex items-center justify-center font-bold cursor-pointer select-none relative`;
+                    
+                    // State coloring
+                    if (baseCoords.r === r && baseCoords.c === c) {
+                        cell.classList.add('bg-emerald-500', 'text-slate-900', 'shadow-md', 'shadow-emerald-500/30');
+                        cell.innerHTML = '<i class="fa-solid fa-warehouse"></i>';
+                    } else if (targets.some(t => t.r === r && t.c === c)) {
+                        const idx = targets.findIndex(t => t.r === r && t.c === c) + 1;
+                        cell.classList.add('bg-amber-500', 'text-slate-900', 'shadow-md', 'shadow-amber-500/30');
+                        cell.innerHTML = `<i class="fa-solid fa-box"></i><span class="absolute -top-1 -right-1 bg-slate-900 text-amber-400 text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-amber-500">${idx}</span>`;
+                    } else if (obstacles.has(cellKey)) {
+                        cell.classList.add('bg-rose-600/90', 'border-rose-700');
+                        cell.innerHTML = '<i class="fa-solid fa-ban text-rose-200 text-[10px]"></i>';
+                    } else {
+                        cell.classList.add('bg-slate-800/60', 'hover:bg-slate-700/80', 'text-slate-500');
+                    }
+
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+
+                    cell.addEventListener('mousedown', (e) => {
+                        isMouseDown = true;
+                        handleCellInteraction(r, c);
+                    });
+                    cell.addEventListener('mouseenter', () => {
+                        if (isMouseDown && activeTool === 'obstacle') {
+                            handleCellInteraction(r, c);
+                        }
+                    });
+
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        // Handle Mouse Click/Drag on Grid
+        function handleCellInteraction(r, c) {
+            const key = `${r},${c}`;
+
+            if (activeTool === 'base') {
+                if (obstacles.has(key)) obstacles.delete(key);
+                targets = targets.filter(t => !(t.r === r && t.c === c));
+                baseCoords = { r, c };
+            } else if (activeTool === 'target') {
+                if (baseCoords.r === r && baseCoords.c === c) return;
+                if (obstacles.has(key)) obstacles.delete(key);
+                const existingIdx = targets.findIndex(t => t.r === r && t.c === c);
+                if (existingIdx >= 0) {
+                    targets.splice(existingIdx, 1);
+                } else {
+                    if (targets.length >= 15) {
+                        showToast('Maximum 15 delivery points allowed for optimal performance.', 'warning');
+                        return;
+                    }
+                    targets.push({ r, c });
+                }
+            } else if (activeTool === 'obstacle') {
+                if ((baseCoords.r === r && baseCoords.c === c) || targets.some(t => t.r === r && t.c === c)) return;
+                if (obstacles.has(key)) {
+                    obstacles.delete(key);
+                } else {
+                    obstacles.add(key);
+                }
+            }
+
+            renderGrid();
+        }
+
+        // Preset Scenarios
+        function loadPreset(type) {
+            resetGrid();
+            if (type === 'urban') {
+                gridSize = 12;
+                baseCoords = { r: 1, c: 1 };
+                targets = [
+                    { r: 2, c: 10 }, { r: 6, c: 11 }, { r: 10, c: 8 }, { r: 9, c: 2 }
+                ];
+                // Vertical wall with single gap
+                obstacles = new Set([
+                    '0,5', '1,5', '2,5', '3,5', '4,5', '6,5', '7,5', '8,5', '9,5', '10,5', '11,5'
+                ]);
+            } else if (type === 'scattered') {
+                gridSize = 14;
+                baseCoords = { r: 7, c: 7 };
+                targets = [
+                    { r: 1, c: 2 }, { r: 2, c: 12 }, { r: 12, c: 12 }, { r: 12, c: 1 }, { r: 6, c: 2 }
+                ];
+                obstacles = new Set(['3,3', '3,4', '4,3', '10,10', '9,10', '10,9']);
+            } else if (type === 'dense') {
+                gridSize = 12;
+                baseCoords = { r: 0, c: 0 };
+                targets = [
+                    { r: 0, c: 11 }, { r: 3, c: 8 }, { r: 6, c: 4 }, { r: 9, c: 1 }, { r: 11, c: 11 }
+                ];
+                obstacles = new Set([
+                    '2,2', '2,3', '2,4', '5,6', '5,7', '5,8', '8,2', '8,3', '8,4'
+                ]);
+            }
+            document.getElementById('grid-slider').value = gridSize;
+            document.getElementById('grid-size-val').innerText = `${gridSize} x ${gridSize}`;
+            renderGrid();
+            showToast(`Loaded ${type.toUpperCase()} scenario.`, 'info');
+        }
+
+        function resetGrid() {
+            if (animationInterval) clearInterval(animationInterval);
+            targets = [];
+            obstacles.clear();
+            fullPathSequence = [];
+            totalDistanceKm = 0;
+            renderGrid();
+            updateTelemetry(0, 0);
+            document.getElementById('planner-status').innerText = 'IDLE';
+            document.getElementById('planner-status').className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-mono';
+            document.getElementById('banner-text').innerText = 'Grid cleared. Set base, targets, and no-fly zones.';
+            document.getElementById('algo-badge').classList.add('hidden');
+        }
+
+        // ==========================================
+        // ALGORITHMS (BFS + TSP)
+        // ==========================================
+
+        // BFS Pathfinding between two points avoiding obstacles
+        function bfsPath(start, goal) {
+            if (start.r === goal.r && start.c === goal.c) return [start];
+            
+            const queue = [[start]];
+            const visited = new Set([`${start.r},${start.c}`]);
+
+            const dirs = [
+                { r: -1, c: 0 }, { r: 1, c: 0 }, { r: 0, c: -1 }, { r: 0, c: 1 }
+            ];
+
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const curr = path[path.length - 1];
+
+                if (curr.r === goal.r && curr.c === goal.c) {
+                    return path;
+                }
+
+                for (let d of dirs) {
+                    const nr = curr.r + d.r;
+                    const nc = curr.c + d.c;
+                    const key = `${nr},${nc}`;
+
+                    if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && !obstacles.has(key) && !visited.has(key)) {
+                        visited.add(key);
+                        queue.push([...path, { r: nr, c: nc }]);
+                    }
+                }
+            }
+            return null; // Unreachable
+        }
+
+        // Solve TSP Dynamic Programming (Held-Karp)
+        function solveHeldKarp(costMatrix) {
+            const n = costMatrix.length;
+            const memo = new Map();
+
+            function visit(mask, pos) {
+                if (mask === (1 << n) - 1) {
+                    return { cost: costMatrix[pos][0], path: [0] };
+                }
+
+                const memoKey = `${mask},${pos}`;
+                if (memo.has(memoKey)) return memo.get(memoKey);
+
+                let minCost = Infinity;
+                let bestPath = [];
+
+                for (let nxt = 0; nxt < n; nxt++) {
+                    if (!(mask & (1 << nxt))) {
+                        const res = visit(mask | (1 << nxt), nxt);
+                        const totalCost = costMatrix[pos][nxt] + res.cost;
+                        if (totalCost < minCost) {
+                            minCost = totalCost;
+                            bestPath = [nxt, ...res.path];
+                        }
+                    }
+                }
+
+                const result = { cost: minCost, path: bestPath };
+                memo.set(memoKey, result);
+                return result;
+            }
+
+            const res = visit(1, 0);
+            return { cost: res.cost, route: [0, ...res.path] };
+        }
+
+        // Solve TSP Greedy Nearest Neighbor
+        function solveGreedy(costMatrix) {
+            const n = costMatrix.length;
+            const visited = new Array(n).fill(false);
+            visited[0] = true;
+            let current = 0;
+            const route = [0];
+            let totalCost = 0;
+
+            for (let step = 0; step < n - 1; step++) {
+                let nextNode = -1;
+                let minDist = Infinity;
+
+                for (let j = 0; j < n; j++) {
+                    if (!visited[j] && costMatrix[current][j] < minDist) {
+                        minDist = costMatrix[current][j];
+                        nextNode = j;
+                    }
+                }
+
+                if (nextNode === -1) break;
+
+                visited[nextNode] = true;
+                route.push(nextNode);
+                totalCost += minDist;
+                current = nextNode;
+            }
+
+            // Return to base
+            totalCost += costMatrix[current][0];
+            route.push(0);
+
+            return { cost: totalCost, route };
+        }
+
+        // Main Runner
+        function runPlanner() {
+            if (targets.length === 0) {
+                showToast('Please add at least one delivery target point.', 'error');
+                return;
+            }
+
+            const allPoints = [baseCoords, ...targets];
+            const n = allPoints.length;
+
+            // 1. Build All-Pairs Shortest Path Matrix via BFS
+            const costMatrix = Array.from({ length: n }, () => new Array(n).fill(Infinity));
+            const pathMatrix = Array.from({ length: n }, () => new Array(n).fill(null));
+
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    if (i === j) {
+                        costMatrix[i][j] = 0;
+                        pathMatrix[i][j] = [allPoints[i]];
+                    } else {
+                        const path = bfsPath(allPoints[i], allPoints[j]);
+                        if (path) {
+                            costMatrix[i][j] = path.length - 1;
+                            pathMatrix[i][j] = path;
+                        } else {
+                            showToast(`Point ${j === 0 ? 'Base' : j} is unreachable from Point ${i === 0 ? 'Base' : i} due to no-fly zones.`, 'error');
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 2. Select Algorithm
+            const algoChoice = document.getElementById('algo-select').value;
+            let result;
+            let usedAlgo = '';
+
+            if (algoChoice === 'held-karp' || (algoChoice === 'auto' && n <= 11)) {
+                result = solveHeldKarp(costMatrix);
+                usedAlgo = 'Held-Karp DP (Exact)';
+            } else {
+                result = solveGreedy(costMatrix);
+                usedAlgo = 'Greedy Nearest Neighbor';
+            }
+
+            // 3. Assemble full tile-by-tile coordinate path
+            fullPathSequence = [];
+            for (let k = 0; k < result.route.length - 1; k++) {
+                const u = result.route[k];
+                const v = result.route[k + 1];
+                const segPath = pathMatrix[u][v];
+                // Omit first element on sub-paths to avoid duplicates
+                if (k === 0) {
+                    fullPathSequence.push(...segPath);
+                } else {
+                    fullPathSequence.push(...segPath.slice(1));
+                }
+            }
+
+            // Grid step distance conversion (assume 1 grid unit = 250 meters = 0.25 km)
+            const gridUnitKm = 0.25;
+            totalDistanceKm = (fullPathSequence.length - 1) * gridUnitKm;
+
+            // UI Status Update
+            document.getElementById('planner-status').innerText = 'COMPUTED';
+            document.getElementById('planner-status').className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono';
+            document.getElementById('banner-text').innerText = `Optimal route computed using ${usedAlgo}. Path length: ${fullPathSequence.length - 1} steps.`;
+            
+            const badge = document.getElementById('algo-badge');
+            badge.innerText = usedAlgo.includes('Held-Karp') ? 'HELD-KARP DP' : 'GREEDY NN';
+            badge.classList.remove('hidden');
+
+            recalculateMetrics();
+            animateDroneRoute();
+        }
+
+        // Animate Drone Path Grid Overlay
+        function animateDroneRoute() {
+            if (animationInterval) clearInterval(animationInterval);
+            renderGrid();
+
+            let step = 0;
+            const cells = document.querySelectorAll('.grid-cell');
+            
+            animationInterval = setInterval(() => {
+                if (step >= fullPathSequence.length) {
+                    clearInterval(animationInterval);
+                    showToast('Flight simulation completed successfully!', 'success');
+                    return;
+                }
+
+                const pos = fullPathSequence[step];
+                const cellKey = `${pos.r},${pos.c}`;
+
+                // Mark path trail
+                cells.forEach(cell => {
+                    const r = parseInt(cell.dataset.r);
+                    const c = parseInt(cell.dataset.c);
+                    
+                    if (r === pos.r && c === pos.c) {
+                        if (!(r === baseCoords.r && c === baseCoords.c) && !targets.some(t => t.r === r && t.c === c)) {
+                            cell.className = cell.className.replace('bg-slate-800/60', 'bg-sky-500/40 border-sky-400');
+                            cell.innerHTML = '<div class="w-2 h-2 rounded-full bg-sky-300 shadow-sm shadow-sky-300"></div>';
+                        } else if (r === baseCoords.r && c === baseCoords.c) {
+                            cell.innerHTML = '<i class="fa-solid fa-drone text-emerald-900 animate-bounce"></i>';
+                        }
+                    }
+                });
+
+                step++;
+            }, 120);
+        }
+
+        // Recalculate Energy & Flight Telemetry Metrics
+        function recalculateMetrics() {
+            if (totalDistanceKm === 0) return;
+
+            const payloadKg = parseFloat(document.getElementById('payload-input').value) || 2.0;
+            const batteryCapWh = parseFloat(document.getElementById('battery-input').value) || 180;
+
+            // Drone physics parameters
+            const droneBaseSpeedKmh = 40; // 40 km/h
+            const hoverPowerW = 150 + (payloadKg * 25); // Base power + payload factor
+            
+            const flightTimeHours = totalDistanceKm / droneBaseSpeedKmh;
+            const flightTimeMinutes = Math.round(flightTimeHours * 60);
+
+            // Energy consumption in Watt-hours (Wh)
+            const energyConsumptionWh = hoverPowerW * flightTimeHours;
+            const batteryRemainingPercent = Math.max(0, Math.round(((batteryCapWh - energyConsumptionWh) / batteryCapWh) * 100));
+
+            // Update UI elements
+            document.getElementById('metric-distance').innerText = `${totalDistanceKm.toFixed(2)}`;
+            document.getElementById('metric-energy').innerText = `${energyConsumptionWh.toFixed(1)}`;
+            document.getElementById('metric-time').innerText = `${flightTimeMinutes}`;
+            document.getElementById('metric-battery').innerText = `${batteryRemainingPercent}%`;
+
+            const batteryBar = document.getElementById('battery-bar');
+            document.getElementById('battery-percent-text').innerText = `${batteryRemainingPercent}% Left`;
+            batteryBar.style.width = `${batteryRemainingPercent}%`;
+
+            if (batteryRemainingPercent < 20) {
+                batteryBar.className = 'h-full bg-rose-500 transition-all duration-500';
+            } else if (batteryRemainingPercent < 50) {
+                batteryBar.className = 'h-full bg-amber-500 transition-all duration-500';
+            } else {
+                batteryBar.className = 'h-full bg-emerald-500 transition-all duration-500';
+            }
+        }
+
+        function updateTelemetry(dist, energy) {
+            document.getElementById('metric-distance').innerText = '0.0';
+            document.getElementById('metric-energy').innerText = '0.0';
+            document.getElementById('metric-time').innerText = '0';
+            document.getElementById('metric-battery').innerText = '100%';
+            document.getElementById('battery-bar').style.width = '100%';
+            document.getElementById('battery-bar').className = 'h-full bg-emerald-500 transition-all duration-500';
+        }
+
+        // Custom Toast Notifications
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                info: 'bg-slate-800 border-sky-500 text-sky-200',
+                success: 'bg-slate-800 border-emerald-500 text-emerald-200',
+                warning: 'bg-slate-800 border-amber-500 text-amber-200',
+                error: 'bg-slate-800 border-rose-500 text-rose-200'
+            };
+
+            const icons = {
+                info: 'fa-circle-info text-sky-400',
+                success: 'fa-circle-check text-emerald-400',
+                warning: 'fa-triangle-exclamation text-amber-400',
+                error: 'fa-circle-xmark text-rose-400'
+            };
+
+            toast.className = `flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl text-xs font-medium backdrop-blur transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type]}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]} text-base"></i><span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
